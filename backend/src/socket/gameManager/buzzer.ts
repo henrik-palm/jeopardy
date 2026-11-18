@@ -109,15 +109,21 @@ export type BuzzOutcome = 'won' | 'early' | 'locked-out' | 'ignored' | 'recorded
 export function setLobbyBuzzer(roomCode: string, action: 'open' | 'reset'): boolean {
   const session = sessions.get(roomCode);
   if (!session || session.phase !== 'lobby' || (action !== 'open' && action !== 'reset')) return false;
-  resetBuzzerFields(session, { buzzerState: action === 'open' ? 'open' : 'idle', clearLockouts: true });
+  resetBuzzerFields(session, { buzzerState: action === 'open' ? 'open' : 'idle', clearLockouts: action === 'reset' });
   return true;
 }
 
 // Practice uses the regular first-buzz collection window, without a clue,
 // answer timer, team eligibility requirements, scoring, or player statistics.
 function recordLobbyBuzz(session: GameState, playerId: string, openedAt: number | null): BuzzOutcome {
-  if (session.buzzerState === 'idle') return 'ignored';
   const now = Date.now();
+  if (session.buzzerState === 'idle') {
+    if (session.settings.lockoutMs > 0) {
+      session.buzzLockouts[playerId] = now + session.settings.lockoutMs;
+    }
+    return 'early';
+  }
+  if (session.buzzLockouts[playerId] > now) return 'locked-out';
   if (session.buzzHistory.some(entry => entry.playerId === playerId)) return 'ignored';
   if (session.buzzerState === 'locked' && (!session.buzzWindow || now >= session.buzzWindow.deadline)) return 'ignored';
   const playerName = playerLabel(session, playerId);

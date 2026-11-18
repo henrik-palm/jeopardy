@@ -55,11 +55,12 @@ export default function Buzzer() {
     && gameState.buzzLockouts[myId] === PERMANENT_LOCKOUT;
   const inLobby = gameState?.phase === 'lobby';
   const lobbyPhase: BuzzerPhase | null = inLobby && buzzerPhase !== 'join' && buzzerPhase !== 'closed'
-    ? gameState.buzzerState === 'open' ? 'open'
+    ? buzzerPhase === 'locked-out' ? 'locked-out'
+      : gameState.buzzerState === 'open' ? 'open'
       : gameState.buzzerState === 'locked'
         ? gameState.buzzedPlayerId === myId ? 'winner'
           : gameState.buzzWindow && !gameState.buzzHistory.some(entry => entry.playerId === myId) ? 'open' : 'too-late'
-        : 'lobby'
+        : 'armed'
     : null;
   const phase: BuzzerPhase = lobbyPhase ?? (isIncorrect && gameState?.phase !== 'finished'
     && buzzerPhase !== 'join' && buzzerPhase !== 'closed'
@@ -95,7 +96,7 @@ export default function Buzzer() {
       setGameState(state);
       if (state.phase === 'finished') { setPhase('finished'); return; }
       const currentPhase = phaseRef.current;
-      if (state.phase === 'lobby' && currentPhase !== 'join' && currentPhase !== 'closed') { setPhase('lobby'); return; }
+      if (state.phase === 'lobby' && currentPhase !== 'join' && currentPhase !== 'closed') { setPhase(prev => prev === 'locked-out' ? prev : 'lobby'); return; }
       if (state.buzzerState === 'locked' && currentPhase !== 'join' && currentPhase !== 'lobby' && currentPhase !== 'closed') {
         setWinnerName(state.buzzedPlayerName ?? 'Another player');
         if (state.buzzedPlayerId === myIdRef.current) setPhase('winner');
@@ -142,9 +143,11 @@ export default function Buzzer() {
       if (until === PERMANENT_LOCKOUT) return;
       setPhase('locked-out');
       const delay = Math.max(0, until - Date.now());
-      setTimeout(() => setPhase(prev => prev === 'locked-out' ? 'armed' : prev), delay);
+      setTimeout(() => setPhase(prev => prev === 'locked-out'
+        ? useGameStore.getState().gameState?.buzzerState === 'open' ? 'open' : 'armed'
+        : prev), delay);
     });
-    socket.on(SOCKET_EVENTS.BUZZER_OPEN, () => setPhase('open'));
+    socket.on(SOCKET_EVENTS.BUZZER_OPEN, () => setPhase(prev => prev === 'locked-out' ? prev : 'open'));
     socket.on(SOCKET_EVENTS.BUZZER_LOCKED, () => setPhase(prev => prev === 'winner' || prev === 'too-late' || prev === 'locked-out' ? prev : 'waiting'));
     socket.on(SOCKET_EVENTS.GAME_ENDED, () => setPhase('closed'));
     socket.on('error', ({ message }: { message: string }) => setError(message));
@@ -223,11 +226,12 @@ export default function Buzzer() {
     : phase === 'incorrect' ? 'Incorrect answer'
     : buttonLabel;
   const statusHint = waitingForTeam ? 'Waiting for the host to assign you to a team.'
+    : phase === 'locked-out' ? 'Wait for your buzzer to unlock'
+    : inLobby && phase === 'armed' ? 'Press early to try the lockout'
     : inLobby && phase !== 'lobby' ? ''
     : phase === 'lobby' ? 'Waiting for the host to start the game'
     : phase === 'winner' ? 'Your turn to answer'
     : phase === 'incorrect' ? 'Wait for the next question'
-    : phase === 'locked-out' ? 'Wait for your buzzer to unlock'
     : phase === 'too-late' ? `${winnerName} buzzed in first`
     : phase === 'armed' ? 'Get ready' : '';
 

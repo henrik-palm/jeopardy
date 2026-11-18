@@ -46,6 +46,7 @@ test('lobby phone buzzes record practice results, reset safely and never affect 
     assert.equal(ack.ok, false);
     phone(E.BUZZ);
     assert.deepEqual(state.buzzHistory, []);
+    now += state.settings.lockoutMs;
     control('open');
     assert.equal(ack.ok, true);
     assert.equal(state.phase, 'lobby');
@@ -132,8 +133,8 @@ test('only Start game leaves the lobby, with validated setup and no gameplay sid
     assert.equal(gm.endGame(roomCode), false);
     assert.equal(gm.advanceRound(roomCode, 2).ok, false);
     assert.equal((await startFinal(io, roomCode)).ok, false);
-    assert.equal(gm.recordBuzz(roomCode, alice.id, alice.name, null), 'ignored');
     assert.deepEqual(state, before);
+    assert.equal(gm.recordBuzz(roomCode, alice.id, alice.name, null), 'early');
     send(E.HOST_START);
     assert.deepEqual(ack, { ok: true });
     assert.equal(state.phase, 'playing');
@@ -176,4 +177,34 @@ test('team readiness catches unassigned players and invalid captains; starting l
     assert.equal(gm.assignTeam(room, alice.id, red.id).ok, false);
     assert.equal(gm.setMode(room, 'individual').ok, false);
   } finally { gm.deleteSession(room); }
+});
+
+test('lobby early penalties rearm, survive opening, expire, and respect Off without changing stats', t => {
+  let now = 1000;
+  t.mock.method(Date, 'now', () => now);
+  const state = gm.createSession('board');
+  const player = gm.addPlayer(state.roomCode, 'Alice', '#ffffff');
+  assert.ok(player);
+  const originalPlayers = structuredClone(state.players);
+  try {
+    assert.equal(gm.recordBuzz(state.roomCode, player.id, player.name, null), 'early');
+    assert.equal(state.buzzLockouts[player.id], 1250);
+    now = 1100;
+    assert.equal(gm.recordBuzz(state.roomCode, player.id, player.name, null), 'early');
+    assert.equal(state.buzzLockouts[player.id], 1350);
+    gm.setLobbyBuzzer(state.roomCode, 'open');
+    assert.equal(gm.recordBuzz(state.roomCode, player.id, player.name, 1100), 'locked-out');
+    now = 1350;
+    assert.equal(gm.recordBuzz(state.roomCode, player.id, player.name, 1100), 'won');
+    gm.setLobbyBuzzer(state.roomCode, 'reset');
+    assert.deepEqual(state.buzzLockouts, {});
+    gm.setLockoutMs(state.roomCode, 0);
+    assert.equal(gm.recordBuzz(state.roomCode, player.id, player.name, null), 'early');
+    assert.deepEqual(state.buzzLockouts, {});
+    gm.setLobbyBuzzer(state.roomCode, 'open');
+    assert.equal(gm.recordBuzz(state.roomCode, player.id, player.name, now), 'won');
+    assert.deepEqual(state.players, originalPlayers);
+  } finally {
+    gm.deleteSession(state.roomCode);
+  }
 });

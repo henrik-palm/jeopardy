@@ -171,6 +171,22 @@ test('wrong-answer lockout survives broadcasts, feedback timers and rejoin, then
     await fire(E.GAME_STATE, { ...state, buzzWindow: null, buzzHistory: [], buzzedPlayerId: null });
     assert.equal(lateBuzz.disabled, false);
     assert.equal(document.querySelector('[aria-label="Buzz order"]'), null);
+    // Lobby practice accepts early presses and displays penalties across broadcasts/opening.
+    const lobby = { ...state, phase: 'lobby', activeQuestionId: null, buzzerState: 'idle', buzzHistory: [] };
+    await fire(E.GAME_STATE, lobby);
+    assert.equal(lateBuzz.disabled, false);
+    await act(async () => lateBuzz.click());
+    await fire(E.BUZZ_LOCKED_OUT, { until: Date.now() + 500 });
+    assertFeedbackInCircle(/Too early!.*Wait for your buzzer to unlock/);
+    assert.equal(lateBuzz.disabled, true);
+    await fire(E.GAME_STATE, lobby);
+    assertFeedbackInCircle(/Too early!/);
+    await fire(E.BUZZER_OPEN);
+    await fire(E.GAME_STATE, { ...lobby, buzzerState: 'open' });
+    assertFeedbackInCircle(/Too early!/);
+    await act(async () => timers.splice(0).forEach(callback => callback()));
+    assert.match(lateBuzz.textContent!, /BUZZ!/);
+    assert.equal(lateBuzz.disabled, false);
     await fire(E.GAME_STATE, lockedState);
     await fire(E.GAME_ENDED);
     assert.match(document.body.textContent!, /Room Closed/);

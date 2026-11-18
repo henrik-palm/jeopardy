@@ -171,8 +171,8 @@ test('board lobby, host readiness and phones follow the explicit start transitio
     assert.equal(intro.stops, 2, 'selecting the first clue stops the intro');
     await mount(`/buzz/${room}`, '/buzz/:roomCode', <Buzzer />);
     await act(async () => handlers.get(E.PLAYER_JOINED)!({ player: alice, state: lobby }));
-    assert.match(document.body.textContent!, /Waiting for the host to start the game/);
-    assert.equal(document.querySelector<HTMLButtonElement>('.player-buzz-button')!.disabled, true);
+    assert.match(document.body.textContent!, /Press early to try the lockout/);
+    assert.equal(document.querySelector<HTMLButtonElement>('.player-buzz-button')!.disabled, false);
     await act(async () => handlers.get(E.GAME_STATE)!(practiceOpen));
     assert.equal(document.querySelector<HTMLButtonElement>('.player-buzz-button')!.disabled, false);
     await act(async () => document.querySelector<HTMLButtonElement>('.player-buzz-button')!.click());
