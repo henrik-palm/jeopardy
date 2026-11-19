@@ -114,7 +114,7 @@ export function setLobbyBuzzer(roomCode: string, action: 'open' | 'reset'): bool
 }
 
 // Practice uses the regular first-buzz collection window, without a clue,
-// answer timer, team eligibility requirements, scoring, or player statistics.
+// team eligibility requirements, scoring, or player statistics.
 function recordLobbyBuzz(session: GameState, playerId: string, openedAt: number | null): BuzzOutcome {
   const now = Date.now();
   if (session.buzzerState === 'idle') {
@@ -135,6 +135,7 @@ function recordLobbyBuzz(session: GameState, playerId: string, openedAt: number 
   session.buzzedPlayerName = playerName;
   session.buzzTimestamp = now;
   session.buzzWindow = { deadline: now + BUZZ_COLLECTION_MS, serverNow: now };
+  startAnswerTimer(session, now);
   return 'won';
 }
 

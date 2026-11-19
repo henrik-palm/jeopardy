@@ -53,13 +53,15 @@ test('lobby phone buzzes record practice results, reset safely and never affect 
     now += 123;
     phone(E.BUZZ);
     assert.equal(state.buzzedPlayerId, alice.id);
-    assert.equal(state.answerTimer, null);
+    const practiceTimer = { deadline: now + state.settings.answerTimeS * 1000, serverNow: now };
+    assert.deepEqual(state.answerTimer, practiceTimer);
     assert.equal(state.questionTimer, null);
     assert.equal(gm.validateScoreEligibility(roomCode, alice.id, false), false);
     assert.equal(gm.markWrongAndReopen(roomCode, alice.id, -100), false);
     now += 50;
     second(E.BUZZ);
     phone(E.BUZZ); // A repeated press does not duplicate the result.
+    assert.equal(state.answerTimer?.deadline, practiceTimer.deadline, 'later buzzes do not restart the countdown');
     assert.deepEqual(state.buzzHistory.map(entry => [entry.playerId, entry.reactionMs]), [[alice.id, 123], [bob.id, 173]]);
     assert.ok(broadcasts.some(entry => entry.event === E.BUZZ_WINNER));
     now += 500;
@@ -71,6 +73,7 @@ test('lobby phone buzzes record practice results, reset safely and never affect 
     assert.equal(state.buzzerState, 'idle');
     assert.deepEqual(state.buzzHistory, []);
     assert.equal(state.buzzedPlayerId, null);
+    assert.equal(state.answerTimer, null);
     control('open');
     phone(E.BUZZ);
     const oldWindow = state.buzzWindow;
@@ -88,6 +91,7 @@ test('lobby phone buzzes record practice results, reset safely and never affect 
     assert.equal(gm.startGame(roomCode), true);
     assert.equal(state.buzzerState, 'idle');
     assert.equal(state.buzzedPlayerId, null);
+    assert.equal(state.answerTimer, null);
     assert.deepEqual(state.buzzHistory, []);
     assert.deepEqual(state.players, originalPlayers);
     t.mock.timers.tick(500);
@@ -199,10 +203,12 @@ test('lobby early penalties rearm, survive opening, expire, and respect Off with
     gm.setLobbyBuzzer(state.roomCode, 'reset');
     assert.deepEqual(state.buzzLockouts, {});
     gm.setLockoutMs(state.roomCode, 0);
+    gm.setAnswerTime(state.roomCode, 0);
     assert.equal(gm.recordBuzz(state.roomCode, player.id, player.name, null), 'early');
     assert.deepEqual(state.buzzLockouts, {});
     gm.setLobbyBuzzer(state.roomCode, 'open');
     assert.equal(gm.recordBuzz(state.roomCode, player.id, player.name, now), 'won');
+    assert.equal(state.answerTimer, null, 'practice respects the disabled answer countdown');
     assert.deepEqual(state.players, originalPlayers);
   } finally {
     gm.deleteSession(state.roomCode);

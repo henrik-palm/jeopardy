@@ -1,5 +1,6 @@
 import type { GameState } from '@shared/types';
 import BuzzResults from './BuzzResults';
+import AnswerCountdown from './AnswerCountdown';
 
 export default function LobbyBuzzerTest({ gameState, onAction }: {
   gameState: GameState;
@@ -20,6 +21,7 @@ export default function LobbyBuzzerTest({ gameState, onAction }: {
       </div>
     </>}
     {!onAction && gameState.buzzWindow && <p className="text-sm text-gray-400">Collecting buzzes…</p>}
+    <AnswerCountdown gameState={gameState} />
     <BuzzResults entries={gameState.buzzHistory} winnerId={gameState.buzzedPlayerId} />
   </section>;
 }

@@ -106,6 +106,7 @@ test('board lobby, host readiness and phones follow the explicit start transitio
     gm.recordBuzz(room, bob.id, bob.name, Date.now());
     await broadcast();
     assert.match(document.querySelector('.board-buzzer-dock--lobby .buzzer-status--display')!.textContent!, /Buzzed in.*Bob/);
+    assert.ok(document.querySelector('.board-buzzer-dock--lobby [aria-label="Answer countdown"]'));
     assert.equal(document.querySelector('.board-buzz-order'), null);
     gm.finishBuzzCollection(room, state.buzzWindow);
     await broadcast();
@@ -114,6 +115,7 @@ test('board lobby, host readiness and phones follow the explicit start transitio
     gm.setLobbyBuzzer(room, 'reset');
     await broadcast();
     assert.equal(document.querySelector('.board-buzzer-dock--lobby'), null);
+    assert.equal(document.querySelector('[aria-label="Answer countdown"]'), null);
     // A reconnect gets the same lobby and roster.
     await act(async () => handlers.get('connect')!());
     assert.equal(emitted.at(-1), E.HOST_JOIN);
@@ -132,9 +134,11 @@ test('board lobby, host readiness and phones follow the explicit start transitio
     await broadcast();
     const practiceWinner = structuredClone(state);
     assert.match(document.querySelector('[aria-label="Lobby buzzer test"]')!.textContent!, /Alice.*First/);
+    assert.ok(document.querySelector('[aria-label="Lobby buzzer test"] [aria-label="Answer countdown"]'));
     await act(async () => control('Reset test').click());
     assert.equal(state.buzzerState, 'idle');
     assert.equal(document.querySelector('[aria-label="Buzz order"]'), null);
+    assert.equal(document.querySelector('[aria-label="Answer countdown"]'), null);
     const start = () => [...document.querySelectorAll('button')].find(b => b.textContent === 'Start game')!;
     assert.equal(start().disabled, true);
     assert.match(document.body.textContent!, /Assign every player/);
@@ -179,6 +183,7 @@ test('board lobby, host readiness and phones follow the explicit start transitio
     assert.equal(emitted.at(-1), E.BUZZ);
     await act(async () => handlers.get(E.GAME_STATE)!(practiceWinner));
     assert.match(document.body.textContent!, /First buzz!/);
+    assert.ok(document.querySelector('.player-buzz-button [aria-label="Answer countdown"]'));
     assert.doesNotMatch(document.body.textContent!, /Your turn to answer/);
     assert.equal(document.querySelector<HTMLButtonElement>('.player-buzz-button')!.disabled, true);
     await act(async () => handlers.get(E.PLAYER_JOINED)!({ player: alice, state: practiceWinner }));
